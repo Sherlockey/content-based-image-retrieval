@@ -1,0 +1,18 @@
+[
+  {
+    "label": "clean",
+    "command": "rm -r build",
+  },
+  {
+    "label": "init",
+    "command": "cmake -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=C:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake",
+  },
+  {
+    "label": "build",
+    "command": "cmake --build build",
+  },
+  {
+    "label": "run main",
+    "command": "./build/main.exe",
+  },
+]
