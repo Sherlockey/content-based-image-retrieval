@@ -1,8 +1,40 @@
-#include <filesystem>
-#include <iostream>
-#include <opencv2/opencv.hpp>
-#include <string_view>
+/*
+    Jonathon Davis
+    2026-05-24
+    Given a database of images and a target image, find images in the data with
+   similar content
+*/
 
+#include "matching.hpp"
+#include <filesystem>
+
+/*
+    Helper to print results
+
+    @param results the vector containing a pairing between the double value and
+   the string pathname
+    @param target_path target image file path
+    @param num_out_images the number of images to print
+*/
+void print_results(std::vector<std::pair<double, std::string>> results,
+                   std::string_view target_path, int num_out_images) {
+    int num_to_print =
+        std::min(num_out_images, static_cast<int>(results.size()));
+    std::cout << "Top " << num_to_print << " matches for " << target_path << ":"
+              << std::endl;
+    for (int i = 1; i < num_to_print + 1 && i < results.size(); i++) {
+        std::cout << i << ". " << results[i].second
+                  << " (Value: " << results[i].first << ")" << std::endl;
+    }
+}
+
+/*
+    Program entry point
+
+    @param argc argument count with how many command line arguments provided
+    @param argv argument vector is an array of strings with command line args
+    @return exit status / return code sent back to OS
+*/
 int main(int argc, char* argv[]) {
     std::vector<std::string_view> args(argv + 1, argv + argc);
 
@@ -65,93 +97,23 @@ int main(int argc, char* argv[]) {
     // # of desired output images N
     int num_out_images = std::stoi(std::string(args[4]));
 
-    // compute the features Ft on the target image T
-    cv::Mat target;
-    std::string target_path_str = std::string(target_path);
-    target = cv::imread(target_path_str);
-
-    // // test if the read was successful
-    if (target.data == NULL) {
-        std::cout << "error: unable to read image" << target_path << std::endl;
-        exit(1);
+    // execute based upon feature_method
+    if (feature_method == "baseline") {
+        auto results =
+            baseline(target_path, database_directory, num_out_images);
+        std::cout << "---Baseline---" << std::endl;
+        print_results(results, target_path, num_out_images);
+    } else if (feature_method == "histogram") {
+        histogram(target_path, database_directory, feature_method,
+                  distance_metric, num_out_images);
+    } else if (feature_method == "multi-histogram") {
+        multi_histogram(target_path, database_directory, feature_method,
+                        distance_metric, num_out_images);
+    } else if (feature_method == "texture-color") {
+        texture_color(target_path, database_directory, feature_method,
+                      distance_metric, num_out_images);
+    } else if (feature_method == "deep-network-embeddings") {
+        deep_network_embeddings(target_path, database_directory, feature_method,
+                                distance_metric, num_out_images);
     }
-
-    // verify target image is large enough
-    if (target.rows < 7 || target.cols < 7) {
-        std::cout << "error: image " << target_path << " is less than 7x7"
-                  << std::endl;
-        exit(1);
-    }
-
-    // calculate sum-of-squared-difference
-    int region_dim = 7;
-    int half_dim = region_dim / 2;
-    int target_start_row = target.rows / 2 - half_dim;
-    int target_start_col = target.cols / 2 - half_dim;
-
-    std::vector<std::pair<double, std::string>> results;
-
-    // loop through each image in data_base_directory
-    for (const std::filesystem::directory_entry& entry :
-         std::filesystem::directory_iterator(database_directory)) {
-
-        cv::Mat image;
-        std::string image_path = entry.path().string();
-        image = cv::imread(image_path);
-
-        // // test if the read was successful
-        if (image.data == NULL) {
-            std::cout << "error: unable to read image" << image_path
-                      << std::endl;
-            exit(1);
-        }
-
-        // verify image is large enough
-        if (image.rows < 7 || image.cols < 7) {
-            std::cout << "error: image " << image_path << " is less than 7x7"
-                      << std::endl;
-            exit(1);
-        }
-
-        int image_start_row = image.rows / 2 - half_dim;
-        int image_start_col = image.cols / 2 - half_dim;
-
-        // loop through region and calculate sum-of-squared-difference
-        double ssd = 0.0; // sum of squared difference
-        for (int i = 0; i < region_dim; i++) {
-            cv::Vec3b* target_ptr = target.ptr<cv::Vec3b>(target_start_row + i);
-            cv::Vec3b* image_ptr = image.ptr<cv::Vec3b>(image_start_row + i);
-            for (int j = 0; j < region_dim; j++) {
-                for (int k = 0; k < target.channels(); k++) {
-                    double difference = target_ptr[target_start_col + j][k] -
-                                        image_ptr[image_start_col + j][k];
-                    ssd += difference * difference;
-                }
-            }
-        }
-        results.emplace_back(ssd, image_path);
-    }
-
-    std::sort(results.begin(), results.end());
-
-    int num_to_print =
-        std::min(num_out_images, static_cast<int>(results.size()));
-    std::cout << "Top " << num_to_print << " matches for " << target_path << ":"
-              << std::endl;
-    for (int i = 0; i < num_to_print; i++) {
-        std::cout << i + 1 << ". " << results[i].second
-                  << " (SSD: " << results[i].first << ")" << std::endl;
-    }
-
-    // compute the features {Fi} on all of the images in B
-
-    // compute the dinstance of T from all of the images in B using the
-    // distance
-
-    // metric D(Ft, Fi)
-
-    // sort the images in B according to their distance from T and return
-    // the best N matches
-
-    return 0;
 }
