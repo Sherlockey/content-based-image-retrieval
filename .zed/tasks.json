@@ -12,7 +12,7 @@
     "command": "cmake --build build",
   },
   {
-    "label": "run main",
-    "command": "./build/main.exe",
+    "label": "run test sum-of-squared-difference",
+    "command": "./build/main.exe ./data/olympus/pic.1016.jpg ./data/olympus baseline sum-of-squared-distance 5",
   },
 ]
