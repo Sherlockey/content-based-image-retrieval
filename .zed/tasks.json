@@ -15,4 +15,8 @@
     "label": "run sum-of-squared-difference",
     "command": "./build/main.exe ./data/olympus/pic.1016.jpg ./data/olympus baseline sum-of-squared-distance 3",
   },
+  {
+    "label": "run histogram",
+    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus histogram histogram-intersection 3",
+  },
 ]

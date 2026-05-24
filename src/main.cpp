@@ -11,12 +11,12 @@
 /*
     Helper to print results
 
-    @param results the vector containing a pairing between the double value and
+    @param results the vector containing a pairing between the float value and
    the string pathname
     @param target_path target image file path
     @param num_out_images the number of images to print
 */
-void print_results(std::vector<std::pair<double, std::string>> results,
+void print_results(std::vector<std::pair<float, std::string>> results,
                    std::string_view target_path, int num_out_images) {
     int num_to_print =
         std::min(num_out_images, static_cast<int>(results.size()));
@@ -104,8 +104,9 @@ int main(int argc, char* argv[]) {
         std::cout << "---Baseline---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "histogram") {
-        histogram(target_path, database_directory, feature_method,
-                  distance_metric, num_out_images);
+        auto results = histogram(target_path, database_directory, 16);
+        std::cout << "---Histogram---" << std::endl;
+        print_results(results, target_path, num_out_images);
     } else if (feature_method == "multi-histogram") {
         multi_histogram(target_path, database_directory, feature_method,
                         distance_metric, num_out_images);
