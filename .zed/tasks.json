@@ -19,19 +19,24 @@
     "label": "run histogram",
     "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus histogram histogram-intersection 3",
   },
-
   {
     "label": "run multi-histogram",
     "command": "./build/main.exe ./data/olympus/pic.0274.jpg ./data/olympus multi-histogram histogram-intersection 3",
   },
-
   {
     "label": "run texture and color",
     "command": "./build/main.exe ./data/olympus/pic.0535.jpg ./data/olympus texture-color histogram-intersection 3",
   },
-
   {
     "label": "run deep network embeddings",
     "command": "./build/main.exe ./data/olympus/pic.0893.jpg ./data/olympus deep-network-embeddings histogram-intersection 3",
+  },
+  {
+    "label": "run hsv histogram (cosine)",
+    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus hsv-histogram cosine-distance 3",
+  },
+  {
+    "label": "run orientation and color (cosine)",
+    "command": "./build/main.exe ./data/olympus/pic.0535.jpg ./data/olympus orientation-color cosine-distance 3",
   },
 ]

@@ -73,24 +73,28 @@ int main(int argc, char* argv[]) {
     if (feature_method != "baseline" && feature_method != "histogram" &&
         feature_method != "multi-histogram" &&
         feature_method != "texture-color" &&
-        feature_method != "deep-network-embeddings") {
+        feature_method != "deep-network-embeddings" &&
+        feature_method != "hsv-histogram" &&
+        feature_method != "orientation-color") {
         std::cout
             << feature_method
             << " must be one of: <'baseline'/'histogram'/'multi-histogram'/"
-               "'texture-color'/'deep-network-embeddings'>"
+               "'texture-color'/'deep-network-embeddings'/'hsv-histogram'/"
+               "'orientation-color'>"
             << std::endl;
         exit(1);
     }
     // distance metric for comparisons D
+    // TODO add passable distance metric to functions, set up the function
+    // pointer here?
     std::string_view distance_metric = args[3];
     if (distance_metric != "sum-of-squared-distance" &&
         distance_metric != "histogram-intersection" &&
-        distance_metric != "rgb-histogram-intersection" &&
-        distance_metric != "custom") {
+        distance_metric != "cosine-distance") {
         std::cout << distance_metric
                   << " must be one of: "
                      "<'sum-of-squared-distance'/'histogram-intersection'/"
-                     "'rgb-histogram-intersection'/'custom'>"
+                     "'cosine-distance'>"
                   << std::endl;
         exit(1);
     }
@@ -130,6 +134,19 @@ int main(int argc, char* argv[]) {
         const char* dnn_embeddings_path = "./data/ResNet18_olym.csv";
         auto results = deep_network_embeddings(c, dnn_embeddings_path);
         std::cout << "---Deep Network Embeddings---" << std::endl;
+        print_results(results, target_path, num_out_images);
+    } else if (feature_method == "hsv-histogram") {
+        int buckets = 16;
+        float color_weight = 0.5f;
+        auto results = hsv_histogram(target_path, database_directory, buckets);
+        std::cout << "---HSV Histogram---" << std::endl;
+        print_results(results, target_path, num_out_images);
+    } else if (feature_method == "orientation-color") {
+        int buckets = 16;
+        float color_weight = 0.5f;
+        auto results =
+            orientation_color(target_path, database_directory, buckets);
+        std::cout << "---Orientation Color---" << std::endl;
         print_results(results, target_path, num_out_images);
     }
 }
