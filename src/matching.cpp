@@ -6,6 +6,7 @@
 */
 
 #include "matching.hpp"
+#include "filter.h"
 #include <filesystem>
 #include <iostream>
 #include <opencv2/highgui.hpp>
@@ -316,10 +317,22 @@ multi_histogram(std::string_view target_path,
     return results;
 }
 
+/*
+    TODO
+*/
 void texture_color(std::string_view target_path,
                    std::string_view database_directory,
                    std::string_view feature_method,
-                   std::string_view distance_metric, int num_out_images) {}
+                   std::string_view distance_metric, int num_out_images) {
+
+    cv::Mat target_texture;
+    cv::Mat sobel_x_3x3_output;
+    cv::Mat sobel_y_3x3_output;
+
+    sobelX3x3(target_texture, sobel_x_3x3_output);
+    sobelY3x3(target_texture, sobel_y_3x3_output);
+    magnitude(sobel_x_3x3_output, sobel_y_3x3_output, target_texture);
+}
 
 void deep_network_embeddings(std::string_view target_path,
                              std::string_view database_directory,
