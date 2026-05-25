@@ -28,9 +28,7 @@ std::vector<std::pair<float, std::string>>
 baseline(std::string_view target_path, std::string_view database_directory,
          int region_dimension) {
     // open target image
-    cv::Mat target;
-    std::string target_path_str = std::string(target_path);
-    target = cv::imread(target_path_str);
+    cv::Mat target = cv::imread(std::string(target_path));
 
     // test if the read was successful
     if (target.data == NULL) {
@@ -236,8 +234,7 @@ multi_histogram(std::string_view target_path,
         exit(1);
     }
 
-    cv::Mat target;
-    target = cv::imread(std::string(target_path));
+    cv::Mat target = cv::imread(std::string(target_path));
     // test if the read was successful
     if (target.data == NULL) {
         std::cout << "error: unable to read image" << target_path << std::endl;
@@ -318,20 +315,101 @@ multi_histogram(std::string_view target_path,
 }
 
 /*
-    TODO
+    Compares a target image to a database of images in two ways. First a color
+   histogram, second a texture histogram as feature vectors. Uses histogram
+   intersection as the distance metric for both histograms. Uses a Sobel
+   gradient magnitude as texture feature. Histograms are weighted according to
+   color_weight.
+
+    @param target_path the target image path
+    @param database_directory the directory path for the database of images
+    @param buckets the number of buckets the feature vector should use
+   (quantize)
+    @param color_weight the weight given to the color histogram (between
+   0.0f and 1.0f), the texture_weight will be (1.0f - color_weight)
+    @return the vector containing pairings between a float value and the string
+    pathname
 */
-void texture_color(std::string_view target_path,
-                   std::string_view database_directory,
-                   std::string_view feature_method,
-                   std::string_view distance_metric, int num_out_images) {
+std::vector<std::pair<float, std::string>>
+texture_color(std::string_view target_path, std::string_view database_directory,
+              int buckets, float color_weight) {
+    if (color_weight < 0.0f || color_weight > 1.0f) {
+        std::cout << "error: cannot run texture_color with a "
+                     "color_weight of < 0.0f or > 1.0f"
+                  << std::endl;
+        exit(1);
+    }
 
-    cv::Mat target_texture;
-    cv::Mat sobel_x_3x3_output;
-    cv::Mat sobel_y_3x3_output;
+    // open target image
+    cv::Mat target = cv::imread(std::string(target_path));
+    // test if the read was successful
+    if (target.data == NULL) {
+        std::cout << "error: unable to read image" << target_path << std::endl;
+        exit(1);
+    }
 
-    sobelX3x3(target_texture, sobel_x_3x3_output);
-    sobelY3x3(target_texture, sobel_y_3x3_output);
-    magnitude(sobel_x_3x3_output, sobel_y_3x3_output, target_texture);
+    // generate 3D color histogram
+    cv::Mat target_color_histogram = compute_histogram(target, buckets);
+
+    // generate magnitude image
+    cv::Mat target_sobel_x_3x3_output;
+    cv::Mat target_sobel_y_3x3_output;
+    sobelX3x3(target, target_sobel_x_3x3_output);
+    sobelY3x3(target, target_sobel_y_3x3_output);
+
+    cv::Mat target_magnitude;
+    magnitude(target_sobel_x_3x3_output, target_sobel_y_3x3_output,
+              target_magnitude);
+
+    // generate magnitude histogram
+    cv::Mat target_magnitude_histogram =
+        compute_histogram(target_magnitude, buckets);
+
+    float texture_weight = 1.0f - color_weight;
+    std::vector<std::pair<float, std::string>> results;
+
+    // loop through each image in data_base_directory
+    for (const auto& entry :
+         std::filesystem::directory_iterator(database_directory)) {
+
+        std::string image_path = entry.path().string();
+        cv::Mat image = cv::imread(image_path);
+        if (image.data == NULL) {
+            std::cout << "error: unable to read image" << image_path
+                      << std::endl;
+            exit(1);
+        }
+
+        // generate 3D color histogram
+        cv::Mat image_color_histogram = compute_histogram(image, buckets);
+
+        // generate magnitude image
+        cv::Mat image_sobel_x_3x3_output;
+        cv::Mat image_sobel_y_3x3_output;
+        sobelX3x3(image, image_sobel_x_3x3_output);
+        sobelY3x3(image, image_sobel_y_3x3_output);
+
+        cv::Mat image_magnitude;
+        magnitude(image_sobel_x_3x3_output, image_sobel_y_3x3_output,
+                  image_magnitude);
+
+        // generate magnitude histogram
+        cv::Mat image_magnitude_histogram =
+            compute_histogram(image_magnitude, buckets);
+
+        // compute both distances
+        float color_distance = histogram_intersection_distance(
+            target_color_histogram, image_color_histogram, buckets);
+        float magnitude_distance = histogram_intersection_distance(
+            target_magnitude_histogram, image_magnitude_histogram, buckets);
+
+        // take average of the two histogram types
+        float combined =
+            color_weight * color_distance + texture_weight * magnitude_distance;
+        results.emplace_back(combined, image_path);
+    }
+    std::sort(results.begin(), results.end());
+    return results;
 }
 
 void deep_network_embeddings(std::string_view target_path,

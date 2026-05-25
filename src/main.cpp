@@ -117,8 +117,12 @@ int main(int argc, char* argv[]) {
         std::cout << "---Mutli-Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "texture-color") {
-        texture_color(target_path, database_directory, feature_method,
-                      distance_metric, num_out_images);
+        int buckets = 16;
+        float color_weight = 0.5f;
+        auto results = texture_color(target_path, database_directory, buckets,
+                                     color_weight);
+        std::cout << "---Texture and Color---" << std::endl;
+        print_results(results, target_path, num_out_images);
     } else if (feature_method == "deep-network-embeddings") {
         deep_network_embeddings(target_path, database_directory, feature_method,
                                 distance_metric, num_out_images);

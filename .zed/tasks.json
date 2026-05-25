@@ -24,4 +24,9 @@
     "label": "run multi-histogram",
     "command": "./build/main.exe ./data/olympus/pic.0274.jpg ./data/olympus multi-histogram histogram-intersection 3",
   },
+
+  {
+    "label": "run texture-color",
+    "command": "./build/main.exe ./data/olympus/pic.0535.jpg ./data/olympus texture-color histogram-intersection 3",
+  },
 ]
