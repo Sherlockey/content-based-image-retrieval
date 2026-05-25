@@ -167,14 +167,12 @@ histogram(std::string_view target_path, std::string_view database_directory,
     cv::Mat target;
     std::string target_path_str = std::string(target_path);
     target = cv::imread(target_path_str);
-
     // test if the read was successful
     if (target.data == NULL) {
         std::cout << "error: unable to read image" << target_path << std::endl;
         exit(1);
     }
 
-    // make target_histogram
     cv::Mat target_histogram = compute_histogram(target, buckets);
 
     std::vector<std::pair<float, std::string>> results;
@@ -185,7 +183,6 @@ histogram(std::string_view target_path, std::string_view database_directory,
 
         std::string image_path = entry.path().string();
         cv::Mat image = cv::imread(image_path);
-
         // // test if the read was successful
         if (image.data == NULL) {
             std::cout << "error: unable to read image" << image_path
@@ -203,10 +200,79 @@ histogram(std::string_view target_path, std::string_view database_directory,
     return results;
 }
 
-void multi_histogram(std::string_view target_path,
-                     std::string_view database_directory,
-                     std::string_view feature_method,
-                     std::string_view distance_metric, int num_out_images) {}
+/*
+   TODO
+*/
+std::vector<std::pair<float, std::string>>
+multi_histogram(std::string_view target_path,
+                std::string_view database_directory, int buckets, int x, int y,
+                int width, int height, float uncropped_weight) {
+
+    if (uncropped_weight < 0.0f || uncropped_weight > 1.0f) {
+        std::cout << "error: cannot run multi_histogram with a "
+                     "full_image_weight of < 0.0f or > 1.0f"
+                  << std::endl;
+        exit(1);
+    }
+
+    cv::Mat target;
+    target = cv::imread(std::string(target_path));
+    // test if the read was successful
+    if (target.data == NULL) {
+        std::cout << "error: unable to read image" << target_path << std::endl;
+        exit(1);
+    }
+
+    // validate ROI fits within the target
+    if (x < 0 || y < 0 || x + width > target.cols || y + height > target.rows) {
+        std::cout
+            << "error: region of interest does not fit within target image"
+            << std::endl;
+        exit(1);
+    }
+    cv::Rect roi(x, y, width, height);
+
+    // compute both target histograms (uncropped and cropped)
+    cv::Mat target_uncropped_histogram = compute_histogram(target, buckets);
+    cv::Mat target_cropped = target(roi);
+    cv::Mat target_cropped_histogram =
+        compute_histogram(target_cropped, buckets);
+
+    float cropped_weight = 1.0f - uncropped_weight;
+    std::vector<std::pair<float, std::string>> results;
+
+    // loop through each image in data_base_directory
+    for (const auto& entry :
+         std::filesystem::directory_iterator(database_directory)) {
+
+        std::string image_path = entry.path().string();
+        cv::Mat image = cv::imread(image_path);
+        if (image.data == NULL) {
+            std::cout << "error: unable to read image" << image_path
+                      << std::endl;
+            exit(1);
+        }
+
+        // compute both histograms for this image
+        cv::Mat image_uncropped_histogram = compute_histogram(image, buckets);
+        cv::Mat image_cropped = image(roi);
+        cv::Mat image_cropped_histogram =
+            compute_histogram(image_cropped, buckets);
+
+        // compute both distances
+        float uncropped_distance = histogram_intersection_distance(
+            target_uncropped_histogram, image_uncropped_histogram, buckets);
+        float cropped_distance = histogram_intersection_distance(
+            target_cropped_histogram, image_cropped_histogram, buckets);
+
+        // weighted average
+        float combined = uncropped_weight * uncropped_distance +
+                         cropped_weight * cropped_distance;
+        results.emplace_back(combined, image_path);
+    }
+    std::sort(results.begin(), results.end());
+    return results;
+}
 
 void texture_color(std::string_view target_path,
                    std::string_view database_directory,

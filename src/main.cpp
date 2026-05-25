@@ -104,12 +104,21 @@ int main(int argc, char* argv[]) {
         std::cout << "---Baseline---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "histogram") {
-        auto results = histogram(target_path, database_directory, 16);
+        int buckets = 16;
+        auto results = histogram(target_path, database_directory, buckets);
         std::cout << "---Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "multi-histogram") {
-        multi_histogram(target_path, database_directory, feature_method,
-                        distance_metric, num_out_images);
+        int buckets = 16;
+        int x = 640 / 4;
+        int y = 512 / 4;
+        int width = x * 2;
+        int height = y * 2;
+        float uncropped_weight = 0.25f;
+        auto results = multi_histogram(target_path, database_directory, buckets,
+                                       x, y, width, height, uncropped_weight);
+        std::cout << "---Mutli-Histogram---" << std::endl;
+        print_results(results, target_path, num_out_images);
     } else if (feature_method == "texture-color") {
         texture_color(target_path, database_directory, feature_method,
                       distance_metric, num_out_images);

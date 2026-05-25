@@ -10,10 +10,10 @@ baseline(std::string_view target_path, std::string_view database_directory,
 std::vector<std::pair<float, std::string>>
 histogram(std::string_view target_path, std::string_view database_directory,
           int buckets);
-void multi_histogram(std::string_view target_path,
-                     std::string_view database_directory,
-                     std::string_view feature_method,
-                     std::string_view distance_metric, int num_out_images);
+std::vector<std::pair<float, std::string>>
+multi_histogram(std::string_view target_path,
+                std::string_view database_directory, int buckets, int x, int y,
+                int width, int height, float uncropped_weight = 0.5f);
 void texture_color(std::string_view target_path,
                    std::string_view database_directory,
                    std::string_view feature_method,
