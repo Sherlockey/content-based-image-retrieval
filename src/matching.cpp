@@ -201,7 +201,23 @@ histogram(std::string_view target_path, std::string_view database_directory,
 }
 
 /*
-   TODO
+    Compares a target image to a database of images in two ways. First the whole
+   images, second a region of the center of the images. Uses a 3D color
+   histogram as the feature vector. Uses histogram intersection as the distance
+   metric.
+
+    @param target_path the target image path
+    @param database_directory the directory path for the database of images
+    @param buckets the number of buckets the feature vector should use
+   (quantize)
+    @param x the starting x of the center region
+    @param y the starting y of the center region
+    @param width the width of the center region
+    @param height the height of the center region
+    @param uncropped_weight the weight given to the uncropped region (between
+   0.0f and 1.0f), the cropped_weight will be (1.0f - uncropped_weight)
+    @return the vector containing pairings between a float value and the string
+    pathname
 */
 std::vector<std::pair<float, std::string>>
 multi_histogram(std::string_view target_path,

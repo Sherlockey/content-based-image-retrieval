@@ -110,6 +110,8 @@ int main(int argc, char* argv[]) {
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "multi-histogram") {
         int buckets = 16;
+        // TODO remove the hardcoding of x, y, width, height.
+        // use % based offsets?
         int x = 640 / 4;
         int y = 512 / 4;
         int width = x * 2;
