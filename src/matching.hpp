@@ -30,5 +30,5 @@ hsv_histogram(std::string_view target_path, std::string_view database_directory,
 
 std::vector<std::pair<float, std::string>>
 orientation_color(std::string_view target_path,
-                  std::string_view database_directory, int buckets = 16,
-                  float color_weight = 0.5f);
+                  std::string_view database_directory, int color_buckets = 16,
+                  int orientation_buckets = 9, float color_weight = 0.5f);

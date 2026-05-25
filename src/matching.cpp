@@ -33,14 +33,14 @@ baseline(std::string_view target_path, std::string_view database_directory,
 
     // test if the read was successful
     if (target.data == NULL) {
-        std::cout << "error: unable to read image" << target_path << std::endl;
+        std::cout << "error: unable to read image " << target_path << std::endl;
         exit(1);
     }
 
     // verify target image is large enough
-    if (target.rows < 7 || target.cols < 7) {
-        std::cout << "error: image " << target_path << " is less than 7x7"
-                  << std::endl;
+    if (target.rows < region_dimension || target.cols < region_dimension) {
+        std::cout << "error: image " << target_path << " is less than "
+                  << region_dimension << "x" << region_dimension << std::endl;
         exit(1);
     }
 
@@ -60,7 +60,7 @@ baseline(std::string_view target_path, std::string_view database_directory,
 
         // // test if the read was successful
         if (image.data == NULL) {
-            std::cout << "error: unable to read image" << image_path
+            std::cout << "error: unable to read image " << image_path
                       << std::endl;
             exit(1);
         }
@@ -169,7 +169,7 @@ histogram(std::string_view target_path, std::string_view database_directory,
     target = cv::imread(target_path_str);
     // test if the read was successful
     if (target.data == NULL) {
-        std::cout << "error: unable to read image" << target_path << std::endl;
+        std::cout << "error: unable to read image " << target_path << std::endl;
         exit(1);
     }
 
@@ -185,7 +185,7 @@ histogram(std::string_view target_path, std::string_view database_directory,
         cv::Mat image = cv::imread(image_path);
         // // test if the read was successful
         if (image.data == NULL) {
-            std::cout << "error: unable to read image" << image_path
+            std::cout << "error: unable to read image " << image_path
                       << std::endl;
             exit(1);
         }
@@ -238,7 +238,7 @@ multi_histogram(std::string_view target_path,
     cv::Mat target = cv::imread(std::string(target_path));
     // test if the read was successful
     if (target.data == NULL) {
-        std::cout << "error: unable to read image" << target_path << std::endl;
+        std::cout << "error: unable to read image " << target_path << std::endl;
         exit(1);
     }
 
@@ -249,7 +249,7 @@ multi_histogram(std::string_view target_path,
     int target_height = target.rows - 2 * target_y;
     // validate ROI fits within the target
     if (target_x < 0 || target_y < 0 || target_x + target_width > target.cols ||
-        target_x + target_height > target.rows) {
+        target_y + target_height > target.rows) {
         std::cout
             << "error: region of interest does not fit within target image"
             << std::endl;
@@ -273,7 +273,7 @@ multi_histogram(std::string_view target_path,
         std::string image_path = entry.path().string();
         cv::Mat image = cv::imread(image_path);
         if (image.data == NULL) {
-            std::cout << "error: unable to read image" << image_path
+            std::cout << "error: unable to read image " << image_path
                       << std::endl;
             exit(1);
         }
@@ -286,10 +286,9 @@ multi_histogram(std::string_view target_path,
 
         // validate ROI fits within the image
         if (image_x < 0 || image_y < 0 || image_x + image_width > image.cols ||
-            image_x + image_height > image.rows) {
-            std::cout
-                << "error: region of interest does not fit within image image"
-                << std::endl;
+            image_y + image_height > image.rows) {
+            std::cout << "error: region of interest does not fit within image"
+                      << std::endl;
             exit(1);
         }
         cv::Rect image_roi(image_x, image_y, image_width, image_height);
@@ -345,7 +344,7 @@ texture_color(std::string_view target_path, std::string_view database_directory,
     cv::Mat target = cv::imread(std::string(target_path));
     // test if the read was successful
     if (target.data == NULL) {
-        std::cout << "error: unable to read image" << target_path << std::endl;
+        std::cout << "error: unable to read image " << target_path << std::endl;
         exit(1);
     }
 
@@ -376,7 +375,7 @@ texture_color(std::string_view target_path, std::string_view database_directory,
         std::string image_path = entry.path().string();
         cv::Mat image = cv::imread(image_path);
         if (image.data == NULL) {
-            std::cout << "error: unable to read image" << image_path
+            std::cout << "error: unable to read image " << image_path
                       << std::endl;
             exit(1);
         }
@@ -455,7 +454,6 @@ deep_network_embeddings(const char* target, const char* dnn_embeddings) {
     for (int i = 0; i < data.size(); i++) {
         float ssd = 0.0; // sum of squared difference
         for (int j = 0; j < data[i].size(); j++) {
-            // do stuff
             float difference = data[target_index][j] - data[i][j];
             ssd += difference * difference;
         }
@@ -684,8 +682,8 @@ pathname
 */
 std::vector<std::pair<float, std::string>>
 orientation_color(std::string_view target_path,
-                  std::string_view database_directory, int buckets,
-                  float color_weight) {
+                  std::string_view database_directory, int color_buckets,
+                  int orientation_buckets, float color_weight) {
     if (color_weight < 0.0f || color_weight > 1.0f) {
         std::cout << "error: cannot run orientation_color with color_weight < "
                      "0.0f or > 1.0f"
@@ -702,7 +700,7 @@ orientation_color(std::string_view target_path,
     }
 
     // target color histogram
-    cv::Mat target_color_histogram = compute_histogram(target, buckets);
+    cv::Mat target_color_histogram = compute_histogram(target, color_buckets);
 
     // target Sobel + magnitude + orientation histogram
     cv::Mat target_sx;
@@ -712,7 +710,7 @@ orientation_color(std::string_view target_path,
     sobelY3x3(target, target_sy);
     magnitude(target_sx, target_sy, target_magnitude);
     cv::Mat target_orientation_histogram = compute_orientation_histogram(
-        target_sx, target_sy, target_magnitude, buckets);
+        target_sx, target_sy, target_magnitude, orientation_buckets);
 
     std::vector<std::pair<float, std::string>> results;
 
@@ -729,7 +727,7 @@ orientation_color(std::string_view target_path,
         }
 
         // create image color histogram
-        cv::Mat image_color_histogram = compute_histogram(image, buckets);
+        cv::Mat image_color_histogram = compute_histogram(image, color_buckets);
 
         // create image orientation histogram
         cv::Mat image_sx;
@@ -739,13 +737,14 @@ orientation_color(std::string_view target_path,
         sobelY3x3(image, image_sy);
         magnitude(image_sx, image_sy, image_magnitude);
         cv::Mat image_orientation_histogram = compute_orientation_histogram(
-            image_sx, image_sy, image_magnitude, buckets);
+            image_sx, image_sy, image_magnitude, orientation_buckets);
 
         // cosine distance for each, 3D for color, 1D for distance
-        float color_dist = cosine_distance_3d(target_color_histogram,
-                                              image_color_histogram, buckets);
-        float orient_dist = cosine_distance_1d(
-            target_orientation_histogram, image_orientation_histogram, buckets);
+        float color_dist = cosine_distance_3d(
+            target_color_histogram, image_color_histogram, color_buckets);
+        float orient_dist = cosine_distance_1d(target_orientation_histogram,
+                                               image_orientation_histogram,
+                                               orientation_buckets);
 
         // combine via weights (default = 0.5f each)
         float combined =

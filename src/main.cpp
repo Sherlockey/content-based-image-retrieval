@@ -105,19 +105,24 @@ int main(int argc, char* argv[]) {
     if (feature_method == "baseline") {
         auto results =
             baseline(target_path, database_directory, num_out_images);
+
         std::cout << "---Baseline---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "histogram") {
         int buckets = 16;
+
         auto results = histogram(target_path, database_directory, buckets);
+
         std::cout << "---Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "multi-histogram") {
         int buckets = 16;
         float edge_offset = 0.25f;
         float uncropped_weight = 0.25f;
+
         auto results = multi_histogram(target_path, database_directory, buckets,
                                        edge_offset, uncropped_weight);
+
         std::cout << "---Mutli-Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "texture-color") {
@@ -132,20 +137,27 @@ int main(int argc, char* argv[]) {
         std::string file_name = p.filename().string();
         const char* c = file_name.c_str();
         const char* dnn_embeddings_path = "./data/ResNet18_olym.csv";
+
         auto results = deep_network_embeddings(c, dnn_embeddings_path);
+
         std::cout << "---Deep Network Embeddings---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "hsv-histogram") {
         int buckets = 16;
-        float color_weight = 0.5f;
+
         auto results = hsv_histogram(target_path, database_directory, buckets);
+
         std::cout << "---HSV Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "orientation-color") {
-        int buckets = 16;
+        int color_buckets = 16;
+        int orientation_buckets = 9;
         float color_weight = 0.5f;
+
         auto results =
-            orientation_color(target_path, database_directory, buckets);
+            orientation_color(target_path, database_directory, color_buckets,
+                              orientation_buckets, color_weight);
+
         std::cout << "---Orientation Color---" << std::endl;
         print_results(results, target_path, num_out_images);
     }
