@@ -22,5 +22,11 @@
   "command": "C:\\PROGRA~1\\LLVM\\bin\\CLANG_~1.EXE -ID:/NU/SU26/computer-vision/content-based-image-retrieval/./include -isystem C:/dev/vcpkg/installed/x64-windows/include/opencv4 -O0 -g -Xclang -gcodeview -std=gnu++23 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\main.dir\\include\\faceDetect.cpp.obj -c D:\\NU\\SU26\\computer-vision\\content-based-image-retrieval\\include\\faceDetect.cpp",
   "file": "D:/NU/SU26/computer-vision/content-based-image-retrieval/include/faceDetect.cpp",
   "output": "D:/NU/SU26/computer-vision/content-based-image-retrieval/build/CMakeFiles/main.dir/include/faceDetect.cpp.obj"
+},
+{
+  "directory": "D:/NU/SU26/computer-vision/content-based-image-retrieval/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\CLANG_~1.EXE -ID:/NU/SU26/computer-vision/content-based-image-retrieval/./include -isystem C:/dev/vcpkg/installed/x64-windows/include/opencv4 -O0 -g -Xclang -gcodeview -std=gnu++23 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\main.dir\\include\\csv_util.cpp.obj -c D:\\NU\\SU26\\computer-vision\\content-based-image-retrieval\\include\\csv_util.cpp",
+  "file": "D:/NU/SU26/computer-vision/content-based-image-retrieval/include/csv_util.cpp",
+  "output": "D:/NU/SU26/computer-vision/content-based-image-retrieval/build/CMakeFiles/main.dir/include/csv_util.cpp.obj"
 }
 ]

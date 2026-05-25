@@ -6,6 +6,7 @@
 */
 
 #include "matching.hpp"
+#include "csv_util.h"
 #include "filter.h"
 #include <filesystem>
 #include <iostream>
@@ -412,8 +413,48 @@ texture_color(std::string_view target_path, std::string_view database_directory,
     return results;
 }
 
-void deep_network_embeddings(std::string_view target_path,
-                             std::string_view database_directory,
-                             std::string_view feature_method,
-                             std::string_view distance_metric,
-                             int num_out_images) {}
+std::vector<std::pair<float, std::string>>
+deep_network_embeddings(const char* target, const char* dnn_embeddings) {
+    // read image data from csv
+    std::vector<char*> file_names;
+    std::vector<std::vector<float>> data;
+    int code = read_image_data_csv(dnn_embeddings, file_names, data, 0);
+    if (code != 0) {
+        std::cout << "error: read_image_data_csv failed" << std::endl;
+        exit(1);
+    }
+
+    // get target data
+    int target_index = 0;
+    bool found = false;
+    while (target_index < file_names.size()) {
+        if (strcmp(file_names[target_index], target) == 0) {
+            found = true;
+            break;
+        }
+        target_index++;
+    }
+    if (!found) {
+        std::cout << "error: " << target << " not found in " << dnn_embeddings
+                  << std::endl;
+        exit(1);
+    }
+
+    std::vector<std::pair<float, std::string>> results;
+
+    // compare target data to all other image data in csv
+    for (int i = 0; i < data.size(); i++) {
+        if (i == target_index) {
+            continue;
+        }
+        float ssd = 0.0; // sum of squared difference
+        for (int j = 0; j < data[i].size(); j++) {
+            // do stuff
+            float difference = data[target_index][j] - data[i][j];
+            ssd += difference * difference;
+        }
+        results.emplace_back(ssd, std::string(file_names[i]));
+    }
+    std::sort(results.begin(), results.end());
+    return results;
+}

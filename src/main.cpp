@@ -124,7 +124,12 @@ int main(int argc, char* argv[]) {
         std::cout << "---Texture and Color---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "deep-network-embeddings") {
-        deep_network_embeddings(target_path, database_directory, feature_method,
-                                distance_metric, num_out_images);
+        std::filesystem::path p(target_path);
+        std::string file_name = p.filename().string();
+        const char* c = file_name.c_str();
+        const char* dnn_embeddings_path = "./data/ResNet18_olym.csv";
+        auto results = deep_network_embeddings(c, dnn_embeddings_path);
+        std::cout << "---Deep Network Embeddings---" << std::endl;
+        print_results(results, target_path, num_out_images);
     }
 }

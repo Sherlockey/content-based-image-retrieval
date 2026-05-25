@@ -26,7 +26,12 @@
   },
 
   {
-    "label": "run texture-color",
+    "label": "run texture and color",
     "command": "./build/main.exe ./data/olympus/pic.0535.jpg ./data/olympus texture-color histogram-intersection 3",
+  },
+
+  {
+    "label": "run deep network embeddings",
+    "command": "./build/main.exe ./data/olympus/pic.0893.jpg ./data/olympus deep-network-embeddings histogram-intersection 3",
   },
 ]

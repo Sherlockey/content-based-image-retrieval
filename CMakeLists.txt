@@ -17,6 +17,7 @@ add_executable(main
     ./src/matching.cpp
     ./include/filter.cpp
     ./include/faceDetect.cpp
+    ./include/csv_util.cpp
 )
 target_link_libraries(main PRIVATE
     ${OpenCV_LIBS}
