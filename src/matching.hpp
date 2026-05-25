@@ -13,7 +13,7 @@ histogram(std::string_view target_path, std::string_view database_directory,
 std::vector<std::pair<float, std::string>>
 multi_histogram(std::string_view target_path,
                 std::string_view database_directory, int buckets,
-                float edge_offset_scalar = 0.25, float uncropped_weight = 0.5f);
+                float edge_offset = 0.25, float uncropped_weight = 0.5f);
 void texture_color(std::string_view target_path,
                    std::string_view database_directory,
                    std::string_view feature_method,
