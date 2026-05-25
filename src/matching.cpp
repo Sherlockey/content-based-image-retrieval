@@ -210,10 +210,8 @@ histogram(std::string_view target_path, std::string_view database_directory,
     @param database_directory the directory path for the database of images
     @param buckets the number of buckets the feature vector should use
    (quantize)
-    @param x the starting x of the center region
-    @param y the starting y of the center region
-    @param width the width of the center region
-    @param height the height of the center region
+    @param edge_offset the scalar used to offset from edge for capturing central
+   region of image
     @param uncropped_weight the weight given to the uncropped region (between
    0.0f and 1.0f), the cropped_weight will be (1.0f - uncropped_weight)
     @return the vector containing pairings between a float value and the string
@@ -221,12 +219,18 @@ histogram(std::string_view target_path, std::string_view database_directory,
 */
 std::vector<std::pair<float, std::string>>
 multi_histogram(std::string_view target_path,
-                std::string_view database_directory, int buckets, int x, int y,
-                int width, int height, float uncropped_weight) {
+                std::string_view database_directory, int buckets,
+                float edge_offset, float uncropped_weight) {
 
     if (uncropped_weight < 0.0f || uncropped_weight > 1.0f) {
         std::cout << "error: cannot run multi_histogram with a "
-                     "full_image_weight of < 0.0f or > 1.0f"
+                     "uncropped_weight of < 0.0f or > 1.0f"
+                  << std::endl;
+        exit(1);
+    }
+    if (edge_offset < 0.0f || edge_offset >= 0.5f) {
+        std::cout << "error: cannot run multi_histogram with a "
+                     "edge_offset of < 0.0f or >= 0.5f"
                   << std::endl;
         exit(1);
     }
@@ -239,18 +243,24 @@ multi_histogram(std::string_view target_path,
         exit(1);
     }
 
+    // calculate region of interest (ROI)
+    int target_x = target.cols * edge_offset;
+    int target_y = target.rows * edge_offset;
+    int target_width = target.cols - 2 * target_x;
+    int target_height = target.rows - 2 * target_y;
     // validate ROI fits within the target
-    if (x < 0 || y < 0 || x + width > target.cols || y + height > target.rows) {
+    if (target_x < 0 || target_y < 0 || target_x + target_width > target.cols ||
+        target_x + target_height > target.rows) {
         std::cout
             << "error: region of interest does not fit within target image"
             << std::endl;
         exit(1);
     }
-    cv::Rect roi(x, y, width, height);
+    cv::Rect target_roi(target_x, target_y, target_width, target_height);
 
     // compute both target histograms (uncropped and cropped)
     cv::Mat target_uncropped_histogram = compute_histogram(target, buckets);
-    cv::Mat target_cropped = target(roi);
+    cv::Mat target_cropped = target(target_roi);
     cv::Mat target_cropped_histogram =
         compute_histogram(target_cropped, buckets);
 
@@ -269,9 +279,25 @@ multi_histogram(std::string_view target_path,
             exit(1);
         }
 
+        // calculate region of interest
+        int image_x = image.cols * edge_offset;
+        int image_y = image.rows * edge_offset;
+        int image_width = image.cols - 2 * image_x;
+        int image_height = image.rows - 2 * image_y;
+
+        // validate ROI fits within the image
+        if (image_x < 0 || image_y < 0 || image_x + image_width > image.cols ||
+            image_x + image_height > image.rows) {
+            std::cout
+                << "error: region of interest does not fit within image image"
+                << std::endl;
+            exit(1);
+        }
+        cv::Rect image_roi(image_x, image_y, image_width, image_height);
+
         // compute both histograms for this image
         cv::Mat image_uncropped_histogram = compute_histogram(image, buckets);
-        cv::Mat image_cropped = image(roi);
+        cv::Mat image_cropped = image(image_roi);
         cv::Mat image_cropped_histogram =
             compute_histogram(image_cropped, buckets);
 

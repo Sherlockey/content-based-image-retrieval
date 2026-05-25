@@ -110,15 +110,10 @@ int main(int argc, char* argv[]) {
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "multi-histogram") {
         int buckets = 16;
-        // TODO remove the hardcoding of x, y, width, height.
-        // use % based offsets?
-        int x = 640 / 4;
-        int y = 512 / 4;
-        int width = x * 2;
-        int height = y * 2;
+        float edge_offset = 0.25f;
         float uncropped_weight = 0.25f;
         auto results = multi_histogram(target_path, database_directory, buckets,
-                                       x, y, width, height, uncropped_weight);
+                                       edge_offset, uncropped_weight);
         std::cout << "---Mutli-Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "texture-color") {
