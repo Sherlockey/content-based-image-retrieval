@@ -1,3 +1,10 @@
+/*
+    Jonathon Davis
+    2026-05-24
+    Matching functions which, given a database of images and a target image,
+   find images in the data with similar content
+*/
+
 #pragma once
 
 #include <opencv2/opencv.hpp>

@@ -32,11 +32,15 @@
     "command": "./build/main.exe ./data/olympus/pic.0893.jpg ./data/olympus deep-network-embeddings histogram-intersection 3",
   },
   {
-    "label": "run hsv histogram (cosine)",
-    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus hsv-histogram cosine-distance 3",
+    "label": "run hsv histogram, cosine, 0164",
+    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus hsv-histogram cosine-distance 5",
   },
   {
-    "label": "run orientation and color (cosine)",
+    "label": "run hsv histogram, cosine, 1016",
+    "command": "./build/main.exe ./data/olympus/pic.1016.jpg ./data/olympus hsv-histogram cosine-distance 5",
+  },
+  {
+    "label": "run orientation and color, cosine",
     "command": "./build/main.exe ./data/olympus/pic.0535.jpg ./data/olympus orientation-color cosine-distance 3",
   },
 ]
