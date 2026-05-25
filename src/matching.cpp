@@ -11,13 +11,17 @@
 #include <opencv2/highgui.hpp>
 
 /*
+    Compares a target image to a database of images.
     Uses a region_dimension square in the middle of the image as a feature
-   vector. Uses sum-of-squared-difference as the distance metric
+   vector.
+    Uses sum-of-squared-difference as the distance metric.
 
-   @param target_path the target image path
-   @param database_directory the directory path for the database of images
-   @param num_out_images the number of image names to output
-   @param region_dimension the dimension of the region observed
+    @param target_path the target image path
+    @param database_directory the directory path for the database of images
+    @param num_out_images the number of image names to output
+    @param region_dimension the dimension of the region observed
+    @return the vector containing pairings between a float value and the string
+    pathname
 */
 std::vector<std::pair<float, std::string>>
 baseline(std::string_view target_path, std::string_view database_directory,
@@ -90,26 +94,39 @@ baseline(std::string_view target_path, std::string_view database_directory,
 }
 
 /*
-   TODO helper
+    Helper, computes and returns a 3D color histogram.
+
+    @param image the image to perform the operation on
+    @param buckets the number of buckets the feature vector should use
+   (quantize)
+    @return the computed 3D color histogram
 */
 cv::Mat compute_histogram(cv::Mat& image, int buckets) {
     int sizes[] = {buckets, buckets, buckets};
-    cv::Mat image_hist(3, sizes, CV_32F, cv::Scalar(0));
+    cv::Mat histogram(3, sizes, CV_32F, cv::Scalar(0));
+
     for (int i = 0; i < image.rows; i++) {
         cv::Vec3b* image_ptr = image.ptr<cv::Vec3b>(i);
         for (int j = 0; j < image.cols; j++) {
+            // calculate then store running bgr counts in histogram
             int b = image_ptr[j][0] * buckets / 256;
             int g = image_ptr[j][1] * buckets / 256;
             int r = image_ptr[j][2] * buckets / 256;
-            image_hist.at<float>(b, g, r) += 1.0f;
+            histogram.at<float>(b, g, r) += 1.0f;
         }
     }
-    image_hist /= (image.rows * image.cols);
-    return image_hist;
+    histogram /= (image.rows * image.cols);
+    return histogram;
 }
 
 /*
-   TODO helper
+    Helper, calculates histogram intersection distance between two histograms.
+
+    @param a histogram a
+    @param b histogram b
+    @param buckets the number of buckets the feature vector should use
+   (quantize)
+    @return the computed histogram intersection distance between a and b
 */
 float histogram_intersection_distance(const cv::Mat& a, const cv::Mat& b,
                                       int buckets) {
@@ -117,16 +134,26 @@ float histogram_intersection_distance(const cv::Mat& a, const cv::Mat& b,
     for (int i = 0; i < buckets; i++) {
         for (int j = 0; j < buckets; j++) {
             for (int k = 0; k < buckets; k++) {
+                // sum mins at all i, j, k
                 intersection +=
                     std::min(a.at<float>(i, j, k), b.at<float>(i, j, k));
             }
         }
     }
-    return 1.0f - intersection;
+    return 1.0f - intersection; // 1 - intersection gives distance
 }
 
 /*
-   TODO
+    Compares a target image to a database of images.
+    Uses a 3D color histogram as the feature vector.
+    Uses histogram intersection as the distance metric.
+
+    @param target_path the target image path
+    @param database_directory the directory path for the database of images
+    @param buckets the number of buckets the feature vector should use
+   (quantize)
+    @return the vector containing pairings between a float value and the string
+    pathname
 */
 std::vector<std::pair<float, std::string>>
 histogram(std::string_view target_path, std::string_view database_directory,
