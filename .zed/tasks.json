@@ -12,60 +12,64 @@
     "command": "cmake --build build",
   },
   {
-    "label": "run sum-of-squared-difference",
+    "label": "run sum-of-squared-difference, 1016",
     "command": "./build/main.exe ./data/olympus/pic.1016.jpg ./data/olympus baseline sum-of-squared-distance 3",
   },
   {
-    "label": "run histogram",
+    "label": "run histogram, histogram-intersection, 0164",
     "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus histogram histogram-intersection 3",
   },
   {
-    "label": "run multi-histogram",
+    "label": "run multi-histogram, histogram-intersection, 0274",
     "command": "./build/main.exe ./data/olympus/pic.0274.jpg ./data/olympus multi-histogram histogram-intersection 3",
   },
   {
-    "label": "run texture and color, 0535",
+    "label": "run texture and color, histogram-intersection, 0535",
     "command": "./build/main.exe ./data/olympus/pic.0535.jpg ./data/olympus texture-color histogram-intersection 3",
   },
   {
-    "label": "run deep network embeddings, 0893",
-    "command": "./build/main.exe ./data/olympus/pic.0893.jpg ./data/olympus deep-network-embeddings histogram-intersection 3",
+    "label": "run deep network embeddings, sum-of-squared-distance, 0893",
+    "command": "./build/main.exe ./data/olympus/pic.0893.jpg ./data/olympus deep-network-embeddings sum-of-squared-distance 3",
   },
   {
-    "label": "run deep network embeddings, 0164",
-    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus deep-network-embeddings histogram-intersection 3",
+    "label": "run deep network embeddings, sum-of-squared-distance, 0164",
+    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus deep-network-embeddings sum-of-squared-distance 3",
   },
   {
-    "label": "run deep network embeddings, 1072",
-    "command": "./build/main.exe ./data/olympus/pic.1072.jpg ./data/olympus deep-network-embeddings histogram-intersection 3",
+    "label": "run deep network embeddings, sum-of-squared-distance, 1072",
+    "command": "./build/main.exe ./data/olympus/pic.1072.jpg ./data/olympus deep-network-embeddings sum-of-squared-distance 3",
   },
   {
-    "label": "run deep network embeddings, 0948",
-    "command": "./build/main.exe ./data/olympus/pic.0948.jpg ./data/olympus deep-network-embeddings histogram-intersection 3",
+    "label": "run deep network embeddings, sum-of-squared-distance, 0948",
+    "command": "./build/main.exe ./data/olympus/pic.0948.jpg ./data/olympus deep-network-embeddings sum-of-squared-distance 3",
   },
   {
-    "label": "run deep network embeddings, 0734",
-    "command": "./build/main.exe ./data/olympus/pic.0734.jpg ./data/olympus deep-network-embeddings histogram-intersection 3",
+    "label": "run deep network embeddings, sum-of-squared-distance, 0734",
+    "command": "./build/main.exe ./data/olympus/pic.0734.jpg ./data/olympus deep-network-embeddings sum-of-squared-distance 3",
   },
   {
-    "label": "run texture and color, 1072",
+    "label": "run texture and color, histogram-intersection, 1072",
     "command": "./build/main.exe ./data/olympus/pic.1072.jpg ./data/olympus texture-color histogram-intersection 3",
   },
   {
-    "label": "run texture and color, 0948",
+    "label": "run texture and color, histogram-intersection, 0948",
     "command": "./build/main.exe ./data/olympus/pic.0948.jpg ./data/olympus texture-color histogram-intersection 3",
   },
   {
-    "label": "run texture and color, 0734",
+    "label": "run texture and color, histogram-intersection, 0734",
     "command": "./build/main.exe ./data/olympus/pic.0734.jpg ./data/olympus texture-color histogram-intersection 3",
   },
   {
-    "label": "run hsv histogram, cosine, 0164",
-    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus hsv-histogram cosine-distance 5",
+    "label": "run hsv histogram, histogram-intersection, 0164",
+    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus hsv-histogram histogram-intersection 1107",
+  },
+  {
+    "label": "run histogram, cosine-distance, 0164",
+    "command": "./build/main.exe ./data/olympus/pic.0164.jpg ./data/olympus hsv-histogram histogram-intersection 1107",
   },
   {
     "label": "run hsv histogram, cosine, 1016",
-    "command": "./build/main.exe ./data/olympus/pic.1016.jpg ./data/olympus hsv-histogram cosine-distance 5",
+    "command": "./build/main.exe ./data/olympus/pic.1016.jpg ./data/olympus hsv-histogram cosine-distance 1107",
   },
   {
     "label": "run orientation and color, cosine, 0535",
