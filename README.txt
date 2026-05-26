@@ -1,0 +1,6 @@
+- Name: Jonathon Davis
+- Links/URLs: None
+- Operating System: Windows 11
+- IDE: Zed
+- Time Travel Days: None / 0
+- Instructions: Run all command line commands from project's root directory. See .zed/tasks.json for the list of commands I used to build the project and run the separate tasks. Note, the task labeled "init" will be different on your machine. For example: "cmake -B build -S ." might be all you need to initialize. However, I had to point CMake to my installed vcpkg libraries to make CMake's search paths (via find_package()) locate my packages. I also use Ninja as the build generator.

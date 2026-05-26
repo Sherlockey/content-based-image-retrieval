@@ -754,3 +754,141 @@ orientation_color(std::string_view target_path,
     std::sort(results.begin(), results.end());
     return results;
 }
+
+/*
+    Compares a target image to a database of images using five feature vectors
+    combined with equal 20% weighting:
+      1. Whole-image BGR color histogram (histogram intersection distance)
+      2. Whole-image gradient magnitude histogram (histogram intersection)
+      3. Centered crop BGR color histogram (histogram intersection)
+      4. Whole-image HSV color histogram (cosine distance)
+      5. Whole-image gradient orientation histogram (cosine distance)
+
+    @param target_path the target image path
+    @param database_directory the directory path for the database of images
+    @param buckets the number of buckets the feature vector should use
+   (quantize)
+    @param edge_offset the scalar used to offset from edge for capturing central
+   region of image (must be in [0, 0.5))
+    @return the vector containing pairings between a float value and the string
+    pathname
+*/
+std::vector<std::pair<float, std::string>>
+combined_features(std::string_view target_path,
+                  std::string_view database_directory, int color_buckets,
+                  int orientation_buckets, float edge_offset) {
+    if (edge_offset < 0.0f || edge_offset >= 0.5f) {
+        std::cout << "error: cannot run combined_features with an "
+                     "edge_offset of < 0.0f or >= 0.5f"
+                  << std::endl;
+        exit(1);
+    }
+
+    // read target
+    cv::Mat target = cv::imread(std::string(target_path));
+    if (target.data == NULL) {
+        std::cout << "error: unable to read image " << target_path << std::endl;
+        exit(1);
+    }
+
+    // --- target features ---
+
+    // 1. whole-image BGR color histogram
+    cv::Mat target_color_hist = compute_histogram(target, color_buckets);
+
+    // 2. whole-image magnitude (texture) histogram
+    cv::Mat target_sx, target_sy, target_magnitude;
+    sobelX3x3(target, target_sx);
+    sobelY3x3(target, target_sy);
+    magnitude(target_sx, target_sy, target_magnitude);
+    cv::Mat target_magnitude_hist =
+        compute_histogram(target_magnitude, color_buckets);
+
+    // 3. centered-crop BGR color histogram
+    int target_x = target.cols * edge_offset;
+    int target_y = target.rows * edge_offset;
+    int target_width = target.cols - 2 * target_x;
+    int target_height = target.rows - 2 * target_y;
+    cv::Rect target_roi(target_x, target_y, target_width, target_height);
+    cv::Mat target_cropped = target(target_roi);
+    cv::Mat target_cropped_hist =
+        compute_histogram(target_cropped, color_buckets);
+
+    // 4. whole-image HSV color histogram
+    cv::Mat target_hsv_hist = compute_hsv_histogram(target, color_buckets);
+
+    // 5. whole-image gradient orientation histogram
+    cv::Mat target_orientation_hist = compute_orientation_histogram(
+        target_sx, target_sy, target_magnitude, orientation_buckets);
+
+    std::vector<std::pair<float, std::string>> results;
+
+    // each of the 5 features contributes 20% to final distance
+    const float weight = 0.2f;
+
+    // --- loop through database images ---
+    for (const auto& entry :
+         std::filesystem::directory_iterator(database_directory)) {
+        std::string image_path = entry.path().string();
+        cv::Mat image = cv::imread(image_path);
+        if (image.data == NULL) {
+            std::cout << "error: unable to read image " << image_path
+                      << std::endl;
+            exit(1);
+        }
+
+        // skip images too small for the ROI
+        int image_x = image.cols * edge_offset;
+        int image_y = image.rows * edge_offset;
+        int image_width = image.cols - 2 * image_x;
+        int image_height = image.rows - 2 * image_y;
+        if (image_width <= 0 || image_height <= 0) {
+            std::cout << "warning: skipping " << image_path
+                      << " (too small for ROI)" << std::endl;
+            exit(1);
+        }
+        cv::Rect image_roi(image_x, image_y, image_width, image_height);
+
+        // 1. whole-image BGR color histogram
+        cv::Mat image_color_hist = compute_histogram(image, color_buckets);
+
+        // 2. magnitude histogram (also generates sx, sy for use in #5)
+        cv::Mat image_sx, image_sy, image_magnitude;
+        sobelX3x3(image, image_sx);
+        sobelY3x3(image, image_sy);
+        magnitude(image_sx, image_sy, image_magnitude);
+        cv::Mat image_magnitude_hist =
+            compute_histogram(image_magnitude, color_buckets);
+
+        // 3. centered-crop color histogram
+        cv::Mat image_cropped = image(image_roi);
+        cv::Mat image_cropped_hist =
+            compute_histogram(image_cropped, color_buckets);
+
+        // 4. HSV color histogram
+        cv::Mat image_hsv_hist = compute_hsv_histogram(image, color_buckets);
+
+        // 5. gradient orientation histogram
+        cv::Mat image_orientation_hist = compute_orientation_histogram(
+            image_sx, image_sy, image_magnitude, orientation_buckets);
+
+        // --- distances ---
+        float color_dist = histogram_intersection_distance(
+            target_color_hist, image_color_hist, color_buckets);
+        float texture_dist = histogram_intersection_distance(
+            target_magnitude_hist, image_magnitude_hist, color_buckets);
+        float cropped_dist = histogram_intersection_distance(
+            target_cropped_hist, image_cropped_hist, color_buckets);
+        float hsv_dist =
+            cosine_distance_3d(target_hsv_hist, image_hsv_hist, color_buckets);
+        float orient_dist =
+            cosine_distance_1d(target_orientation_hist, image_orientation_hist,
+                               orientation_buckets);
+
+        float combined = weight * (color_dist + texture_dist + cropped_dist +
+                                   hsv_dist + orient_dist);
+        results.emplace_back(combined, image_path);
+    }
+    std::sort(results.begin(), results.end());
+    return results;
+}

@@ -43,9 +43,10 @@ int main(int argc, char* argv[]) {
         std::cout << "Usage: " << argv[0] << " <target image filename>"
                   << " <database filepath>"
                   << " <'baseline'/'histogram'/'multi-histogram'/"
-                     "'texture-color'/'deep-network-embeddings'>"
+                     "'texture-color'/'deep-network-embeddings'/"
+                     "'hsv-histogram'/'orientation-color'/'combined-features'>"
                   << " <'sum-of-squared-distance'/'histogram-intersection'/"
-                     "'rgb-histogram-intersection'/'custom'>"
+                     "'cosine-distance'>"
                   << " <number of output images>" << std::endl;
         exit(1);
     }
@@ -75,12 +76,13 @@ int main(int argc, char* argv[]) {
         feature_method != "texture-color" &&
         feature_method != "deep-network-embeddings" &&
         feature_method != "hsv-histogram" &&
-        feature_method != "orientation-color") {
+        feature_method != "orientation-color" &&
+        feature_method != "combined-features") {
         std::cout
             << feature_method
             << " must be one of: <'baseline'/'histogram'/'multi-histogram'/"
                "'texture-color'/'deep-network-embeddings'/'hsv-histogram'/"
-               "'orientation-color'>"
+               "'orientation-color'/'combined-features'>"
             << std::endl;
         exit(1);
     }
@@ -150,6 +152,17 @@ int main(int argc, char* argv[]) {
         std::cout << "---HSV Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "orientation-color") {
+        int color_buckets = 16;
+        int orientation_buckets = 9;
+        float color_weight = 0.5f;
+
+        auto results =
+            orientation_color(target_path, database_directory, color_buckets,
+                              orientation_buckets, color_weight);
+
+        std::cout << "---Orientation Color---" << std::endl;
+        print_results(results, target_path, num_out_images);
+    } else if (feature_method == "combined-features") {
         int color_buckets = 16;
         int orientation_buckets = 9;
         float color_weight = 0.5f;
