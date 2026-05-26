@@ -13,6 +13,125 @@
 #include <opencv2/highgui.hpp>
 
 /*
+    Helper, to parse the passed distance metric into an enum
+*/
+DistanceMetric parse_distance_metric(std::string_view name) {
+    if (name == "sum-of-squared-distance")
+        return DistanceMetric::SumOfSquaredDistance;
+    if (name == "histogram-intersection")
+        return DistanceMetric::HistogramIntersection;
+    if (name == "cosine-distance")
+        return DistanceMetric::CosineDistance;
+    // unreachable if main validated the arg, but fallback anyways
+    return DistanceMetric::SumOfSquaredDistance;
+}
+
+/*
+    Helper, to get name from enum
+*/
+const char* distance_metric_name(DistanceMetric m) {
+    switch (m) {
+    case DistanceMetric::SumOfSquaredDistance:
+        return "sum-of-squared-distance";
+    case DistanceMetric::HistogramIntersection:
+        return "histogram-intersection";
+    case DistanceMetric::CosineDistance:
+        return "cosine-distance";
+    }
+    return "unknown";
+}
+
+/*
+    Helper, if requested metric isn't supported by this feature function, print
+   a warning and return the default. Otherwise return the requested metric.
+*/
+DistanceMetric resolve_metric(DistanceMetric requested,
+                              const std::vector<DistanceMetric>& supported,
+                              DistanceMetric default_metric,
+                              const char* function_name) {
+    for (DistanceMetric m : supported) {
+        if (m == requested)
+            return requested;
+    }
+    std::cout << "warning: " << function_name << " does not support "
+              << distance_metric_name(requested) << ". Falling back to "
+              << distance_metric_name(default_metric) << std::endl;
+    return default_metric;
+}
+
+/*
+    Helper, SSD between two 3D histograms.
+*/
+float ssd_3d(cv::Mat& a, cv::Mat& b, int buckets) {
+    double ssd = 0.0;
+    for (int i = 0; i < buckets; i++) {
+        for (int j = 0; j < buckets; j++) {
+            for (int k = 0; k < buckets; k++) {
+                double diff = a.at<float>(i, j, k) - b.at<float>(i, j, k);
+                ssd += diff * diff;
+            }
+        }
+    }
+    return static_cast<float>(ssd);
+}
+
+/*
+    Helper, SSD between two 1D histograms.
+*/
+float ssd_1d(cv::Mat& a, cv::Mat& b, int buckets) {
+    double ssd = 0.0;
+    for (int i = 0; i < buckets; i++) {
+        double diff = a.at<float>(i) - b.at<float>(i);
+        ssd += diff * diff;
+    }
+    return static_cast<float>(ssd);
+}
+
+/*
+    Helper, histogram intersection distance for 1D histograms.
+*/
+float histogram_intersection_distance_1d(cv::Mat& a, cv::Mat& b, int buckets) {
+    float intersection = 0.0f;
+    for (int i = 0; i < buckets; i++) {
+        intersection += std::min(a.at<float>(i), b.at<float>(i));
+    }
+    return 1.0f - intersection;
+}
+
+/*
+    Helper, cosine distance between two 3D histograms.
+
+    @param a histogram a
+    @param b histogram b
+    @param buckets the number of buckets the feature vector should use
+   (quantize)
+    @return cosine distance
+ */
+float cosine_distance_3d(cv::Mat& a, cv::Mat& b, int buckets) {
+    double dot = 0.0;    // dot product
+    double norm_a = 0.0; // sum of squares of a's components OR ||a||^2
+    double norm_b = 0.0; // sum of squares for b's components
+    for (int i = 0; i < buckets; i++) {
+        for (int j = 0; j < buckets; j++) {
+            for (int k = 0; k < buckets; k++) {
+                float av = a.at<float>(i, j, k);
+                float bv = b.at<float>(i, j, k);
+                dot += av * bv;
+                norm_a += av * av;
+                norm_b += bv * bv;
+            }
+        }
+    }
+    if (norm_a == 0 || norm_b == 0) {
+        // undefined / max distance. return completely dissimilar in this
+        // case
+        return 1.0f;
+    }
+    double similarity = dot / (std::sqrt(norm_a) * std::sqrt(norm_b));
+    return static_cast<float>(1.0 - similarity); // 1 - similarity, aka distance
+}
+
+/*
     Compares a target image to a database of images.
     Uses a region_dimension square in the middle of the image as a feature
    vector.
@@ -66,8 +185,9 @@ baseline(std::string_view target_path, std::string_view database_directory,
         }
 
         // verify image is large enough
-        if (image.rows < 7 || image.cols < 7) {
-            std::cout << "error: image " << image_path << " is less than 7x7"
+        if (image.rows < region_dimension || image.cols < region_dimension) {
+            std::cout << "error: image " << image_path << " is less than "
+                      << region_dimension << "x" << region_dimension
                       << std::endl;
             exit(1);
         }
@@ -128,8 +248,7 @@ cv::Mat compute_histogram(cv::Mat& image, int buckets) {
    (quantize)
     @return the computed histogram intersection distance between a and b
 */
-float histogram_intersection_distance(const cv::Mat& a, const cv::Mat& b,
-                                      int buckets) {
+float histogram_intersection_distance(cv::Mat& a, cv::Mat& b, int buckets) {
     float intersection = 0.0;
     for (int i = 0; i < buckets; i++) {
         for (int j = 0; j < buckets; j++) {
@@ -145,24 +264,31 @@ float histogram_intersection_distance(const cv::Mat& a, const cv::Mat& b,
 
 /*
     Compares a target image to a database of images.
-    Uses a 3D color histogram as the feature vector.
-    Uses histogram intersection as the distance metric.
+    Uses a RGB as the feature vector for the histogram.
 
     @param target_path the target image path
     @param database_directory the directory path for the database of images
     @param buckets the number of buckets the feature vector should use
    (quantize)
+    @param DistanceMetric the distance metric to use when comparing features
     @return the vector containing pairings between a float value and the string
     pathname
 */
 std::vector<std::pair<float, std::string>>
 histogram(std::string_view target_path, std::string_view database_directory,
-          int buckets) {
+          int buckets, DistanceMetric metric) {
     if (buckets <= 0) {
         std::cout << "error: cannot use histogram with buckets <= 0"
                   << std::endl;
         exit(1);
     }
+
+    // resolve metric
+    DistanceMetric resolved = resolve_metric(
+        metric,
+        {DistanceMetric::SumOfSquaredDistance,
+         DistanceMetric::HistogramIntersection, DistanceMetric::CosineDistance},
+        DistanceMetric::HistogramIntersection, "histogram");
 
     cv::Mat target;
     std::string target_path_str = std::string(target_path);
@@ -192,8 +318,20 @@ histogram(std::string_view target_path, std::string_view database_directory,
 
         // make image_histogram and compute/store distance
         cv::Mat image_histogram = compute_histogram(image, buckets);
-        float distance = histogram_intersection_distance(
-            target_histogram, image_histogram, buckets);
+        float distance;
+        switch (resolved) {
+        case DistanceMetric::SumOfSquaredDistance:
+            distance = ssd_3d(target_histogram, image_histogram, buckets);
+            break;
+        case DistanceMetric::HistogramIntersection:
+            distance = histogram_intersection_distance(
+                target_histogram, image_histogram, buckets);
+            break;
+        case DistanceMetric::CosineDistance:
+            distance =
+                cosine_distance_3d(target_histogram, image_histogram, buckets);
+            break;
+        }
         results.emplace_back(distance, image_path);
     }
     std::sort(results.begin(), results.end());
@@ -201,26 +339,34 @@ histogram(std::string_view target_path, std::string_view database_directory,
 }
 
 /*
-    Compares a target image to a database of images in two ways. First the whole
-   images, second a region of the center of the images. Uses a 3D color
-   histogram as the feature vector. Uses histogram intersection as the distance
-   metric.
+    Compares a target image to a database of images in two ways. First the
+   whole images, second a region of the center of the images. Uses a 3D
+   RGB color histogram as the feature vector.
 
     @param target_path the target image path
     @param database_directory the directory path for the database of images
     @param buckets the number of buckets the feature vector should use
    (quantize)
-    @param edge_offset the scalar used to offset from edge for capturing central
-   region of image
-    @param uncropped_weight the weight given to the uncropped region (between
-   0.0f and 1.0f), the cropped_weight will be (1.0f - uncropped_weight)
-    @return the vector containing pairings between a float value and the string
-    pathname
+    @param edge_offset the scalar used to offset from edge for capturing
+   central region of image
+    @param uncropped_weight the weight given to the uncropped region
+   (between 0.0f and 1.0f), the cropped_weight will be (1.0f -
+   uncropped_weight)
+    @param DistanceMetric the distance metric to use when comparing features
+    @return the vector containing pairings between a float value and the
+   string pathname
 */
 std::vector<std::pair<float, std::string>>
 multi_histogram(std::string_view target_path,
                 std::string_view database_directory, int buckets,
-                float edge_offset, float uncropped_weight) {
+                float edge_offset, float uncropped_weight,
+                DistanceMetric metric) {
+    // resolve metric
+    DistanceMetric resolved = resolve_metric(
+        metric,
+        {DistanceMetric::SumOfSquaredDistance,
+         DistanceMetric::HistogramIntersection, DistanceMetric::CosineDistance},
+        DistanceMetric::HistogramIntersection, "multi_histogram");
 
     if (uncropped_weight < 0.0f || uncropped_weight > 1.0f) {
         std::cout << "error: cannot run multi_histogram with a "
@@ -300,10 +446,28 @@ multi_histogram(std::string_view target_path,
             compute_histogram(image_cropped, buckets);
 
         // compute both distances
-        float uncropped_distance = histogram_intersection_distance(
-            target_uncropped_histogram, image_uncropped_histogram, buckets);
-        float cropped_distance = histogram_intersection_distance(
-            target_cropped_histogram, image_cropped_histogram, buckets);
+        float uncropped_distance;
+        float cropped_distance;
+        switch (resolved) {
+        case DistanceMetric::SumOfSquaredDistance:
+            uncropped_distance = ssd_3d(target_uncropped_histogram,
+                                        image_uncropped_histogram, buckets);
+            cropped_distance = ssd_3d(target_cropped_histogram,
+                                      image_cropped_histogram, buckets);
+            break;
+        case DistanceMetric::HistogramIntersection:
+            uncropped_distance = histogram_intersection_distance(
+                target_uncropped_histogram, image_uncropped_histogram, buckets);
+            cropped_distance = histogram_intersection_distance(
+                target_cropped_histogram, image_cropped_histogram, buckets);
+            break;
+        case DistanceMetric::CosineDistance:
+            uncropped_distance = cosine_distance_3d(
+                target_uncropped_histogram, image_uncropped_histogram, buckets);
+            cropped_distance = cosine_distance_3d(
+                target_cropped_histogram, image_cropped_histogram, buckets);
+            break;
+        }
 
         // weighted average
         float combined = uncropped_weight * uncropped_distance +
@@ -315,11 +479,11 @@ multi_histogram(std::string_view target_path,
 }
 
 /*
-    Compares a target image to a database of images in two ways. First a color
-   histogram, second a texture histogram as feature vectors. Uses histogram
-   intersection as the distance metric for both histograms. Uses a Sobel
-   gradient magnitude as texture feature. Histograms are weighted according to
-   color_weight.
+    Compares a target image to a database of images in two ways. First a
+   color histogram, second a texture histogram as feature vectors. Uses
+   histogram intersection as the distance metric for both histograms. Uses a
+   Sobel gradient magnitude as texture feature. Histograms are weighted
+   according to color_weight.
 
     @param target_path the target image path
     @param database_directory the directory path for the database of images
@@ -327,12 +491,20 @@ multi_histogram(std::string_view target_path,
    (quantize)
     @param color_weight the weight given to the color histogram (between
    0.0f and 1.0f), the texture_weight will be (1.0f - color_weight)
-    @return the vector containing pairings between a float value and the string
-    pathname
+    @param DistanceMetric the distance metric to use when comparing features
+    @return the vector containing pairings between a float value and the
+   string pathname
 */
 std::vector<std::pair<float, std::string>>
 texture_color(std::string_view target_path, std::string_view database_directory,
-              int buckets, float color_weight) {
+              int buckets, float color_weight, DistanceMetric metric) {
+    // resolve metric
+    DistanceMetric resolved = resolve_metric(
+        metric,
+        {DistanceMetric::SumOfSquaredDistance,
+         DistanceMetric::HistogramIntersection, DistanceMetric::CosineDistance},
+        DistanceMetric::HistogramIntersection, "texture_color");
+
     if (color_weight < 0.0f || color_weight > 1.0f) {
         std::cout << "error: cannot run texture_color with a "
                      "color_weight of < 0.0f or > 1.0f"
@@ -398,10 +570,28 @@ texture_color(std::string_view target_path, std::string_view database_directory,
             compute_histogram(image_magnitude, buckets);
 
         // compute both distances
-        float color_distance = histogram_intersection_distance(
-            target_color_histogram, image_color_histogram, buckets);
-        float magnitude_distance = histogram_intersection_distance(
-            target_magnitude_histogram, image_magnitude_histogram, buckets);
+        float color_distance;
+        float magnitude_distance;
+        switch (resolved) {
+        case DistanceMetric::SumOfSquaredDistance:
+            color_distance =
+                ssd_3d(target_color_histogram, image_color_histogram, buckets);
+            magnitude_distance = ssd_3d(target_magnitude_histogram,
+                                        image_magnitude_histogram, buckets);
+            break;
+        case DistanceMetric::HistogramIntersection:
+            color_distance = histogram_intersection_distance(
+                target_color_histogram, image_color_histogram, buckets);
+            magnitude_distance = histogram_intersection_distance(
+                target_magnitude_histogram, image_magnitude_histogram, buckets);
+            break;
+        case DistanceMetric::CosineDistance:
+            color_distance = cosine_distance_3d(target_color_histogram,
+                                                image_color_histogram, buckets);
+            magnitude_distance = cosine_distance_3d(
+                target_magnitude_histogram, image_magnitude_histogram, buckets);
+            break;
+        }
 
         // take average of the two histogram types
         float combined =
@@ -418,11 +608,19 @@ texture_color(std::string_view target_path, std::string_view database_directory,
 
     @param target the target image file name
     @param dnn_embeddings the csv file name
-    @return the vector containing pairings between a float value and the string
-    pathname
+    @param DistanceMetric the distance metric to use when comparing features
+    @return the vector containing pairings between a float value and the
+   string pathname
 */
 std::vector<std::pair<float, std::string>>
-deep_network_embeddings(const char* target, const char* dnn_embeddings) {
+deep_network_embeddings(const char* target, const char* dnn_embeddings,
+                        DistanceMetric metric) {
+    // resolve metric
+    DistanceMetric resolved = resolve_metric(
+        metric,
+        {DistanceMetric::SumOfSquaredDistance, DistanceMetric::CosineDistance},
+        DistanceMetric::SumOfSquaredDistance, "deep_network_embeddings");
+
     // read image data from csv
     std::vector<char*> file_names;
     std::vector<std::vector<float>> data;
@@ -450,14 +648,34 @@ deep_network_embeddings(const char* target, const char* dnn_embeddings) {
 
     std::vector<std::pair<float, std::string>> results;
 
-    // compare target data to all other image data in csv using SSD
+    // compare target data to all other image data in csv using resolved
     for (int i = 0; i < data.size(); i++) {
-        float ssd = 0.0; // sum of squared difference
+        double ssd = 0.0, dot = 0.0, target_norm = 0.0, image_norm = 0.0;
         for (int j = 0; j < data[i].size(); j++) {
-            float difference = data[target_index][j] - data[i][j];
-            ssd += difference * difference;
+            if (resolved == DistanceMetric::SumOfSquaredDistance) {
+                float diff = data[target_index][j] - data[i][j];
+                ssd += diff * diff;
+            } else { // CosineDistance (only other supported)
+                double tv = data[target_index][j], iv = data[i][j];
+                dot += tv * iv;
+                target_norm += tv * tv;
+                image_norm += iv * iv;
+            }
         }
-        results.emplace_back(ssd, std::string(file_names[i]));
+
+        float distance;
+        if (resolved == DistanceMetric::SumOfSquaredDistance) {
+            distance = static_cast<float>(ssd);
+        } else {
+            if (target_norm == 0 || image_norm == 0) {
+                distance = 1.0f;
+            } else {
+                distance =
+                    static_cast<float>(1.0 - dot / (std::sqrt(target_norm) *
+                                                    std::sqrt(image_norm)));
+            }
+        }
+        results.emplace_back(distance, std::string(file_names[i]));
     }
     std::sort(results.begin(), results.end());
     return results;
@@ -505,38 +723,6 @@ cv::Mat compute_hsv_histogram(cv::Mat& image, int buckets) {
 }
 
 /*
-    Helper, cosine distance between two 3D histograms.
-
-    @param a histogram a
-    @param b histogram b
-    @param buckets the number of buckets the feature vector should use
-   (quantize)
-    @return cosine distance
- */
-float cosine_distance_3d(cv::Mat& a, cv::Mat& b, int buckets) {
-    double dot = 0.0;    // dot product
-    double norm_a = 0.0; // sum of squares of a's components OR ||a||^2
-    double norm_b = 0.0; // sum of squares for b's components
-    for (int i = 0; i < buckets; i++) {
-        for (int j = 0; j < buckets; j++) {
-            for (int k = 0; k < buckets; k++) {
-                float av = a.at<float>(i, j, k);
-                float bv = b.at<float>(i, j, k);
-                dot += av * bv;
-                norm_a += av * av;
-                norm_b += bv * bv;
-            }
-        }
-    }
-    if (norm_a == 0 || norm_b == 0) {
-        // undefined / max distance. return completely dissimilar in this case
-        return 1.0f;
-    }
-    double similarity = dot / (std::sqrt(norm_a) * std::sqrt(norm_b));
-    return static_cast<float>(1.0 - similarity); // 1 - similarity, aka distance
-}
-
-/*
     Creates histograms between a target and a database and returns the
    comparisons.
 
@@ -544,12 +730,20 @@ float cosine_distance_3d(cv::Mat& a, cv::Mat& b, int buckets) {
     @param database_directory the directory path for the database of images
     @param buckets the number of buckets the feature vector should use
    (quantize)
-    @return the vector containing pairings between a float value and the string
-    pathname
+    @param DistanceMetric the distance metric to use when comparing features
+    @return the vector containing pairings between a float value and the
+   string pathname
 */
 std::vector<std::pair<float, std::string>>
 hsv_histogram(std::string_view target_path, std::string_view database_directory,
-              int buckets) {
+              int buckets, DistanceMetric metric) {
+    // resolve metric
+    DistanceMetric resolved = resolve_metric(
+        metric,
+        {DistanceMetric::SumOfSquaredDistance,
+         DistanceMetric::HistogramIntersection, DistanceMetric::CosineDistance},
+        DistanceMetric::CosineDistance, "hsv_histogram");
+
     // read target
     cv::Mat target = cv::imread(std::string(target_path));
     if (target.data == NULL) {
@@ -576,7 +770,21 @@ hsv_histogram(std::string_view target_path, std::string_view database_directory,
 
         // compute hsv histogram, calculate distance, then store distance
         cv::Mat image_hist = compute_hsv_histogram(image, buckets);
-        float distance = cosine_distance_3d(target_hist, image_hist, buckets);
+
+        // compute distance based upon resolved metric
+        float distance;
+        switch (resolved) {
+        case DistanceMetric::SumOfSquaredDistance:
+            distance = ssd_3d(target_hist, image_hist, buckets);
+            break;
+        case DistanceMetric::HistogramIntersection:
+            distance = histogram_intersection_distance(target_hist, image_hist,
+                                                       buckets);
+            break;
+        case DistanceMetric::CosineDistance:
+            distance = cosine_distance_3d(target_hist, image_hist, buckets);
+            break;
+        }
         results.emplace_back(distance, image_path);
     }
     std::sort(results.begin(), results.end());
@@ -608,13 +816,15 @@ cv::Mat compute_orientation_histogram(cv::Mat& sx_image, cv::Mat& sy_image,
         cv::Vec3b* mag_ptr = magnitude_image.ptr<cv::Vec3b>(i);
 
         for (int j = 0; j < sx_image.cols; j++) {
-            // average the three channels to get a single orientation per pixel
+            // average the three channels to get a single orientation per
+            // pixel
             double sx_avg = (sx_ptr[j][0] + sx_ptr[j][1] + sx_ptr[j][2]) / 3.0;
             double sy_avg = (sy_ptr[j][0] + sy_ptr[j][1] + sy_ptr[j][2]) / 3.0;
             double mag_avg =
                 (mag_ptr[j][0] + mag_ptr[j][1] + mag_ptr[j][2]) / 3.0;
 
-            // atan2 returns (-π, π]; we map to [0, π) by taking absolute value
+            // atan2 returns (-π, π]; we map to [0, π) by taking absolute
+            // value
             double angle = std::atan2(sy_avg, sx_avg);
             if (angle < 0)
                 angle += CV_PI; // now in [0, π]
@@ -647,7 +857,7 @@ cv::Mat compute_orientation_histogram(cv::Mat& sx_image, cv::Mat& sy_image,
    (quantize)
     @return cosine distance
  */
-float cosine_distance_1d(const cv::Mat& a, const cv::Mat& b, int buckets) {
+float cosine_distance_1d(cv::Mat& a, cv::Mat& b, int buckets) {
     double dot = 0.0;    // dot product
     double norm_a = 0.0; // sum of squares of a's components OR ||a||^2
     double norm_b = 0.0; // sum of squares for b's components
@@ -667,23 +877,33 @@ float cosine_distance_1d(const cv::Mat& a, const cv::Mat& b, int buckets) {
 }
 
 /*
-    Compare a target with images in database based upon orientation and color.
-   Computes orientation via SobelX, SobelY, and Gradient Magnitude. Computes
-   color via BGR.
+    Compare a target with images in database based upon orientation and
+color. Computes orientation via SobelX, SobelY, and Gradient Magnitude.
+Computes color via BGR.
 
     @param target_path the target image path
     @param database_directory the directory path for the database of images
-    @param buckets the number of buckets the feature vector should use
-   (quantize)
+    @param color_buckets the number of buckets the color vector should use
+    @param orientation_buckets the number of buckets the orientation vector
+should use
     @param color_weight the weight given to the color histogram (between
    0.0f and 1.0f), the texture_weight will be (1.0f - color_weight)
-    @return the vector containing pairings between a float value and the string
-pathname
+   @param DistanceMetric the distance metric to use when comparing features
+    @return the vector containing pairings between a float value and the
+string pathname
 */
 std::vector<std::pair<float, std::string>>
 orientation_color(std::string_view target_path,
                   std::string_view database_directory, int color_buckets,
-                  int orientation_buckets, float color_weight) {
+                  int orientation_buckets, float color_weight,
+                  DistanceMetric metric) {
+    // resolve metric
+    DistanceMetric resolved = resolve_metric(
+        metric,
+        {DistanceMetric::SumOfSquaredDistance,
+         DistanceMetric::HistogramIntersection, DistanceMetric::CosineDistance},
+        DistanceMetric::CosineDistance, "orientation_color");
+
     if (color_weight < 0.0f || color_weight > 1.0f) {
         std::cout << "error: cannot run orientation_color with color_weight < "
                      "0.0f or > 1.0f"
@@ -739,12 +959,32 @@ orientation_color(std::string_view target_path,
         cv::Mat image_orientation_histogram = compute_orientation_histogram(
             image_sx, image_sy, image_magnitude, orientation_buckets);
 
-        // cosine distance for each, 3D for color, 1D for distance
-        float color_dist = cosine_distance_3d(
-            target_color_histogram, image_color_histogram, color_buckets);
-        float orient_dist = cosine_distance_1d(target_orientation_histogram,
-                                               image_orientation_histogram,
-                                               orientation_buckets);
+        // compute both distances
+        float color_dist;
+        float orient_dist;
+        switch (resolved) {
+        case DistanceMetric::SumOfSquaredDistance:
+            color_dist = ssd_3d(target_color_histogram, image_color_histogram,
+                                color_buckets);
+            orient_dist =
+                ssd_1d(target_orientation_histogram,
+                       image_orientation_histogram, orientation_buckets);
+            break;
+        case DistanceMetric::HistogramIntersection:
+            color_dist = histogram_intersection_distance(
+                target_color_histogram, image_color_histogram, color_buckets);
+            orient_dist = histogram_intersection_distance_1d(
+                target_orientation_histogram, image_orientation_histogram,
+                orientation_buckets);
+            break;
+        case DistanceMetric::CosineDistance:
+            color_dist = cosine_distance_3d(
+                target_color_histogram, image_color_histogram, color_buckets);
+            orient_dist = cosine_distance_1d(target_orientation_histogram,
+                                             image_orientation_histogram,
+                                             orientation_buckets);
+            break;
+        }
 
         // combine via weights (default = 0.5f each)
         float combined =
@@ -756,8 +996,8 @@ orientation_color(std::string_view target_path,
 }
 
 /*
-    Compares a target image to a database of images using five feature vectors
-    combined with equal 20% weighting:
+    Compares a target image to a database of images using five feature
+   vectors combined with equal 20% weighting:
       1. Whole-image BGR color histogram (histogram intersection distance)
       2. Whole-image gradient magnitude histogram (histogram intersection)
       3. Centered crop BGR color histogram (histogram intersection)
@@ -768,10 +1008,10 @@ orientation_color(std::string_view target_path,
     @param database_directory the directory path for the database of images
     @param buckets the number of buckets the feature vector should use
    (quantize)
-    @param edge_offset the scalar used to offset from edge for capturing central
-   region of image (must be in [0, 0.5))
-    @return the vector containing pairings between a float value and the string
-    pathname
+    @param edge_offset the scalar used to offset from edge for capturing
+   central region of image (must be in [0, 0.5))
+    @return the vector containing pairings between a float value and the
+   string pathname
 */
 std::vector<std::pair<float, std::string>>
 combined_features(std::string_view target_path,
@@ -837,14 +1077,14 @@ combined_features(std::string_view target_path,
             exit(1);
         }
 
-        // skip images too small for the ROI
+        // error on images too small for the ROI
         int image_x = image.cols * edge_offset;
         int image_y = image.rows * edge_offset;
         int image_width = image.cols - 2 * image_x;
         int image_height = image.rows - 2 * image_y;
         if (image_width <= 0 || image_height <= 0) {
-            std::cout << "warning: skipping " << image_path
-                      << " (too small for ROI)" << std::endl;
+            std::cout << "error: " << image_path << " (too small for ROI)"
+                      << std::endl;
             exit(1);
         }
         cv::Rect image_roi(image_x, image_y, image_width, image_height);

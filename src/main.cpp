@@ -87,8 +87,6 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
     // distance metric for comparisons D
-    // TODO add passable distance metric to functions, set up the function
-    // pointer here?
     std::string_view distance_metric = args[3];
     if (distance_metric != "sum-of-squared-distance" &&
         distance_metric != "histogram-intersection" &&
@@ -100,30 +98,34 @@ int main(int argc, char* argv[]) {
                   << std::endl;
         exit(1);
     }
+    DistanceMetric metric = parse_distance_metric(distance_metric);
+
     // # of desired output images N
     int num_out_images = std::stoi(std::string(args[4]));
 
     // execute based upon feature_method
     if (feature_method == "baseline") {
+        int region_dimension = 7;
         auto results =
-            baseline(target_path, database_directory, num_out_images);
+            baseline(target_path, database_directory, region_dimension);
 
         std::cout << "---Baseline---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "histogram") {
         int buckets = 16;
 
-        auto results = histogram(target_path, database_directory, buckets);
+        auto results =
+            histogram(target_path, database_directory, buckets, metric);
 
         std::cout << "---Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "multi-histogram") {
         int buckets = 16;
         float edge_offset = 0.25f;
-        float uncropped_weight = 0.25f;
+        float uncropped_weight = 0.5f;
 
         auto results = multi_histogram(target_path, database_directory, buckets,
-                                       edge_offset, uncropped_weight);
+                                       edge_offset, uncropped_weight, metric);
 
         std::cout << "---Mutli-Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
@@ -131,7 +133,7 @@ int main(int argc, char* argv[]) {
         int buckets = 16;
         float color_weight = 0.5f;
         auto results = texture_color(target_path, database_directory, buckets,
-                                     color_weight);
+                                     color_weight, metric);
         std::cout << "---Texture and Color---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "deep-network-embeddings") {
@@ -147,7 +149,8 @@ int main(int argc, char* argv[]) {
     } else if (feature_method == "hsv-histogram") {
         int buckets = 16;
 
-        auto results = hsv_histogram(target_path, database_directory, buckets);
+        auto results =
+            hsv_histogram(target_path, database_directory, buckets, metric);
 
         std::cout << "---HSV Histogram---" << std::endl;
         print_results(results, target_path, num_out_images);
@@ -158,20 +161,20 @@ int main(int argc, char* argv[]) {
 
         auto results =
             orientation_color(target_path, database_directory, color_buckets,
-                              orientation_buckets, color_weight);
+                              orientation_buckets, color_weight, metric);
 
         std::cout << "---Orientation Color---" << std::endl;
         print_results(results, target_path, num_out_images);
     } else if (feature_method == "combined-features") {
         int color_buckets = 16;
         int orientation_buckets = 9;
-        float color_weight = 0.5f;
+        float edge_offset = 0.25f;
 
         auto results =
-            orientation_color(target_path, database_directory, color_buckets,
-                              orientation_buckets, color_weight);
+            combined_features(target_path, database_directory, color_buckets,
+                              orientation_buckets, edge_offset);
 
-        std::cout << "---Orientation Color---" << std::endl;
+        std::cout << "---Combined Features---" << std::endl;
         print_results(results, target_path, num_out_images);
     }
 }
